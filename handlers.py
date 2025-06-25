@@ -3,9 +3,12 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+from deep_translator import GoogleTranslator
+from newspaper import build
 
 import keyboards as kb
 from database import create_or_update_user, get_user_profile, insert_default_newslinks_once, get_all_links_by_column
+from gemini_client import summarize_news
 
 router = Router()
 
@@ -16,6 +19,16 @@ class user(StatesGroup):
 class news_structure(StatesGroup):
     category = State()
     bias = State()
+
+def build_from_multiple_sites(links):
+    all_articles = []
+    for url in links:
+        try:
+            paper = build(url, memoize_articles=False)
+            all_articles.extend(paper.articles)
+        except Exception as e:
+            print(f"Ошибка при обработке {url}: {e}")
+    return all_articles
 
 @router.message(CommandStart())
 async def handler_start(message: Message):
@@ -97,7 +110,48 @@ async def handler_news_output(message: Message, state: FSMContext):
     data = await state.get_data()
     category = data.get('category')
 
+    ### working
+
     links = await get_all_links_by_column(category, bias)
+
+    telegram_id = message.from_user.id
+    profile = await get_user_profile(telegram_id)
+
+    translator = GoogleTranslator(source='auto', target=profile['language'])
+
+    news_articles = build_from_multiple_sites(links)
+
+    await message.answer(f"Found {len(news_articles)} articles")
+
+    all_articles = build_from_multiple_sites(links)
+
+    translated_texts = []
+    for article in all_articles[:10]:  # ограничим до 10 статей
+        try:
+            article.download()
+            article.parse()
+            if not article.text.strip():
+                continue
+            translated = translator.translate(article.text)
+            translated_texts.append(translated)
+        except Exception as e:
+            print(f"Ошибка статьи: {e}")
+            continue
+
+    if not translated_texts:
+        await message.answer("Не удалось загрузить или перевести ни одной статьи.")
+        return
+
+    await message.answer("Генерирую сводку с помощью ИИ...")
+
+    summary = await summarize_news(translated_texts)
+
+    if len(summary) > 4000:
+        summary_parts = [summary[i:i + 4000] for i in range(0, len(summary), 4000)]
+        for part in summary_parts:
+            await message.answer(part)
+    else:
+        await message.answer(summary)
 
 
 

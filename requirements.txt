@@ -1,5 +1,8 @@
 aiogram
 python-dotenv
 aiosqlite
-
-# pip install google-generativeai
+newspaper3k
+requests
+deep_translator
+lxml_html_clean
+google-generativeai

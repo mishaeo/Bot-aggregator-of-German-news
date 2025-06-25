@@ -13,13 +13,13 @@ async def init_db():
             economicsRight TEXT,
             economicsCenter TEXT,
             
-            technologiesLeft TEXT,
-            technologiesRight TEXT,
-            technologiesCenter TEXT,
+            technologyLeft TEXT,
+            technologyRight TEXT,
+            technologyCenter TEXT,
             
-            policyLeft TEXT,
-            policyRight TEXT,
-            policyCenter TEXT,
+            politicsLeft TEXT,
+            politicsRight TEXT,
+            politicsCenter TEXT,
             
             generalNewsLeft TEXT,
             generalNewsRight TEXT,
@@ -71,32 +71,32 @@ async def insert_default_newslinks_once():
             await db.execute("""
                 INSERT INTO newslinks (
                     economicsLeft, economicsRight, economicsCenter,
-                    technologiesLeft, technologiesRight, technologiesCenter,
-                    policyLeft, policyRight, policyCenter,
+                    technologyLeft, technologyRight, technologyCenter,
+                    politicsLeft, politicsRight, politicsCenter,
                     generalNewsLeft, generalNewsRight, generalNewsCenter
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                "https://econ-left.com",
-                "https://econ-right.com",
-                "https://econ-center.com",
+                "https://www.zeit.de/thema/wirtschaftspolitik",
+                "https://deutsche-wirtschafts-nachrichten.de/wirtschaft/",
+                "https://www.handelsblatt.com",
 
-                "https://tech-left.com",
-                "https://tech-right.com",
-                "https://tech-center.com",
+                "https://www.zeit.de/thema/digitalisierung",
+                "https://deutsche-wirtschafts-nachrichten.de/technologie/",
+                "https://www.faz.net/pro/digitalwirtschaft",
 
-                "https://policy-left.com",
-                "https://policy-right.com",
-                "https://policy-center.com",
+                "https://www.freitag.de/front-page",
+                "https://jungefreiheit.de",
+                "https://www.cicero.de",
 
-                "https://news-left.com",
-                "https://news-right.com",
-                "https://news-center.com"
+                "https://www.sueddeutsche.de",
+                "https://nius.de",
+                "https://www.rnd.de"
             ))
             await db.commit()
 
 
 async def get_all_links_by_column(category: str, bias: str) -> list[str]:
-    valid_categories = ['economics', 'technologies', 'policy', 'generalNews']
+    valid_categories = ['economics', 'technology', 'politics', 'generalNews']
     valid_biases = ['Left', 'Right', 'Center']
 
     if category not in valid_categories or bias not in valid_biases:

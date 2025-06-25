@@ -13,7 +13,7 @@ category_button = ReplyKeyboardMarkup(
         [KeyboardButton(text="politics")],
         [KeyboardButton(text="economics")],
         [KeyboardButton(text="technology")],
-        [KeyboardButton(text="general news")],
+        [KeyboardButton(text="generalNews")],
     ],
     resize_keyboard=True
 )

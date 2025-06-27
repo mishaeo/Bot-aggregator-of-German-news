@@ -1,39 +1,31 @@
 from typing import Dict
 import aiosqlite
 
+
 DB_NAME = "database.db"
+
 
 async def init_db():
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""
         CREATE TABLE IF NOT EXISTS newslinks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            
-            economicsLeft TEXT,
-            economicsRight TEXT,
-            economicsCenter TEXT,
-            
-            technologyLeft TEXT,
-            technologyRight TEXT,
-            technologyCenter TEXT,
-            
-            politicsLeft TEXT,
-            politicsRight TEXT,
-            politicsCenter TEXT,
-            
-            generalNewsLeft TEXT,
-            generalNewsRight TEXT,
-            generalNewsCenter TEXT
+            category TEXT NOT NULL,
+            bias TEXT NOT NULL,
+            url TEXT NOT NULL
         )
         """)
         await db.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                telegram_id TEXT UNIQUE,
-                language TEXT DEFAULT 'en'
-            )
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            telegram_id TEXT UNIQUE,
+            language TEXT DEFAULT 'en'
+        )
         """)
         await db.commit()
+
+
+
 
 async def create_or_update_user(telegram_id: int, language: str = 'en'):
     async with aiosqlite.connect(DB_NAME) as db:
@@ -45,6 +37,7 @@ async def create_or_update_user(telegram_id: int, language: str = 'en'):
         """, (telegram_id, language))
         await db.commit()
 
+
 async def get_user_profile(telegram_id: int) -> Dict[str, str]:
     async with aiosqlite.connect(DB_NAME) as db:
         cursor = await db.execute(
@@ -53,14 +46,12 @@ async def get_user_profile(telegram_id: int) -> Dict[str, str]:
         row = await cursor.fetchone()
 
     if row:
-        language = row[0]
-        return {
-            "language": language
-        }
+        return {"language": row[0]}
     else:
         return {
             "error": "⚠️ You are not registered yet. Use /registration to register."
         }
+
 
 async def insert_default_newslinks_once():
     async with aiosqlite.connect(DB_NAME) as db:
@@ -68,31 +59,34 @@ async def insert_default_newslinks_once():
         count = (await cursor.fetchone())[0]
 
         if count == 0:
-            await db.execute("""
-                INSERT INTO newslinks (
-                    economicsLeft, economicsRight, economicsCenter,
-                    technologyLeft, technologyRight, technologyCenter,
-                    politicsLeft, politicsRight, politicsCenter,
-                    generalNewsLeft, generalNewsRight, generalNewsCenter
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                "https://www.zeit.de/thema/wirtschaftspolitik",
-                "https://deutsche-wirtschafts-nachrichten.de/wirtschaft/",
-                "https://www.handelsblatt.com",
+            links = [
+                # Economics
+                ('economics', 'Left', 'https://www.zeit.de/thema/wirtschaftspolitik'),
+                ('economics', 'Right', 'https://www.tichyseinblick.de/wirtschaft/'),
+                ('economics', 'Center', 'https://www.faz.net/aktuell/wirtschaft'),
 
-                "https://www.zeit.de/thema/digitalisierung",
-                "https://deutsche-wirtschafts-nachrichten.de/technologie/",
-                "https://www.faz.net/pro/digitalwirtschaft",
+                # Technology
+                ('technology', 'Left', 'https://www.zeit.de/thema/digitalisierung'),
+                ('technology', 'Right', 'https://www.tichyseinblick.de'),
+                ('technology', 'Center', 'https://www.faz.net/pro/digitalwirtschaft'),
 
-                "https://www.freitag.de/front-page",
-                "https://jungefreiheit.de",
-                "https://www.cicero.de",
+                # Politics
+                ('politics', 'Left', 'https://www.freitag.de/front-page'),
+                ('politics', 'Right', 'https://jungefreiheit.de'),
+                ('politics', 'Center', 'https://www.tagesspiegel.de/politik'),
 
-                "https://www.sueddeutsche.de",
-                "https://nius.de",
-                "https://www.rnd.de"
-            ))
+                # General News
+                ('generalNews', 'Left', 'https://www.sueddeutsche.de'),
+                ('generalNews', 'Right', 'https://www.tichyseinblick.de'),
+                ('generalNews', 'Center', 'https://www.tagesspiegel.de'),
+            ]
+
+            await db.executemany("""
+                INSERT INTO newslinks (category, bias, url)
+                VALUES (?, ?, ?)
+            """, links)
             await db.commit()
+
 
 
 async def get_all_links_by_column(category: str, bias: str) -> list[str]:
@@ -102,15 +96,15 @@ async def get_all_links_by_column(category: str, bias: str) -> list[str]:
     if category not in valid_categories or bias not in valid_biases:
         raise ValueError("Неверная категория или политический взгляд")
 
-    column_name = f"{category}{bias}"  # например: economicsLeft
-
     async with aiosqlite.connect(DB_NAME) as db:
-        query = f"SELECT {column_name} FROM newslinks ORDER BY id"
-        cursor = await db.execute(query)
+        cursor = await db.execute(
+            "SELECT url FROM newslinks WHERE category = ? AND bias = ? ORDER BY id",
+            (category, bias)
+        )
         rows = await cursor.fetchall()
 
-    # Возвращаем только непустые строки
     return [row[0] for row in rows if row[0]]
+
 
 
 

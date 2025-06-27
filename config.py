@@ -4,6 +4,10 @@ import os
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+AI_TOKEN = os.getenv("AI_TOKEN")
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN not found in .env file!")
+
+if not AI_TOKEN:
+    raise ValueError("AI_TOKEN not found in .env file!")

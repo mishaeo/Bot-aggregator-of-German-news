@@ -94,7 +94,7 @@ async def handler_news(message: Message, state: FSMContext):
     await message.answer('Select the news category you want to receive!', reply_markup=kb.category_button)
     await state.set_state(news_structure.category)
 
-@router.message(news_structure.category, F.text.in_(['politics', 'economics', 'technology', 'general news']))
+@router.message(news_structure.category, F.text.in_(['politics', 'economics', 'technology', 'generalNews']))
 async def handler_news_select_category(message: Message, state: FSMContext):
     category = message.text
     await state.update_data(category=category)
@@ -102,56 +102,76 @@ async def handler_news_select_category(message: Message, state: FSMContext):
     await message.answer('Select the news bias category you want to receive!', reply_markup=kb.bias_button)
     await state.set_state(news_structure.bias)
 
+
+
+
 @router.message(news_structure.bias, F.text.in_(['Left', 'Right', 'Center']))
 async def handler_news_output(message: Message, state: FSMContext):
+    await message.answer("Идет сбор и вывод новостей...")
+
+    # Получаем направление
     bias = message.text
     await state.update_data(bias=bias)
 
+    # Получаем предыдущие данные
     data = await state.get_data()
     category = data.get('category')
 
-    ### working
-
+    # Получаем ссылки на статьи
     links = await get_all_links_by_column(category, bias)
 
+    # Загружаем профиль пользователя и определяем язык
     telegram_id = message.from_user.id
     profile = await get_user_profile(telegram_id)
+    user_lang = profile.get('language', 'en')
 
-    translator = GoogleTranslator(source='auto', target=profile['language'])
-
-    news_articles = build_from_multiple_sites(links)
-
-    await message.answer(f"Found {len(news_articles)} articles")
-
+    # Получаем статьи с сайтов
     all_articles = build_from_multiple_sites(links)
 
-    translated_texts = []
+    # Список текстов для перевода
+    articles_text = []
+
     for article in all_articles[:10]:  # ограничим до 10 статей
         try:
             article.download()
             article.parse()
-            if not article.text.strip():
-                continue
-            translated = translator.translate(article.text)
-            translated_texts.append(translated)
+            raw_text = article.text.strip()
+
+            # Получаем первые 2 абзаца
+            paragraphs = [p for p in raw_text.split('\n') if p.strip()]
+            excerpt = '\n\n'.join(paragraphs[:2])
+
+            if excerpt:
+                articles_text.append(excerpt)
         except Exception as e:
-            print(f"Ошибка статьи: {e}")
+            print(f"Ошибка при обработке статьи: {e}")
             continue
 
-    if not translated_texts:
-        await message.answer("Не удалось загрузить или перевести ни одной статьи.")
+    if not articles_text:
+        await message.answer("Не удалось получить содержимое ни одной статьи.")
         return
 
-    await message.answer("Генерирую сводку с помощью ИИ...")
+    await message.answer("Поиск новостей завершен") # TEST
 
-    summary = await summarize_news(translated_texts)
+    await message.answer("Перевод новостей завершен") # TEST
+    await message.answer("Генерирую сводку с помощью ИИ") # TEST
 
-    if len(summary) > 4000:
-        summary_parts = [summary[i:i + 4000] for i in range(0, len(summary), 4000)]
+    # Генерация сводки
+    summary = await summarize_news(articles_text, user_lang)
+
+    if not summary.strip():
+        await message.answer("Не удалось сгенерировать сводку.")
+        return
+
+    # Отправка пользователю — учитываем ограничение Telegram
+    MAX_LENGTH = 4000
+    if len(summary) > MAX_LENGTH:
+        summary_parts = [summary[i:i + MAX_LENGTH] for i in range(0, len(summary), MAX_LENGTH)]
         for part in summary_parts:
             await message.answer(part)
     else:
         await message.answer(summary)
+
 
 
 
